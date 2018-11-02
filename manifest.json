@@ -1,0 +1,13 @@
+{
+  "name": "ScatterBlox",
+  "short_name": "ScatterBlox",
+  "version": "1.0",
+  "description": "Adds an avatar randomization button to the avatar page",
+  "manifest_version": 2,
+  "content_scripts": [
+    {
+      "matches": ["*://*.roblox.com/*"],
+      "js": ["src/index.js"]
+    }
+  ]
+}
