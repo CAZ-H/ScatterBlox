@@ -7,7 +7,7 @@
   "content_scripts": [
     {
       "matches": ["*://*.roblox.com/*"],
-      "js": ["src/index.js"],
+      "js": ["build/index.js"],
       "run_at": "document_end"
     }
   ]

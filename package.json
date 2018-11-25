@@ -1,0 +1,47 @@
+{
+  "name": "scatterblox",
+  "version": "1.0.0",
+  "description": "Adds an avatar randomize button to the avatar page",
+  "main": "build/index.js",
+  "scripts": {
+    "bundle": "browserify src/index.js -o build/index.js"
+  },
+  "pre-commit": ["bundle"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CAZ-H/ScatterBlox.git"
+  },
+  "author": "Casey Hildebrand <CaZsm@outlook.com> (https://github.com/CAZ-H)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/CAZ-H/ScatterBlox/issues"
+  },
+  "homepage": "https://github.com/CAZ-H/ScatterBlox#readme",
+  "devDependencies": {
+    "@babel/cli": "^7.1.5",
+    "@babel/core": "^7.1.6",
+    "@babel/plugin-transform-react-jsx": "^7.1.6",
+    "@babel/preset-env": "^7.1.6",
+    "babelify": "^10.0.0",
+    "browserify": "^16.2.3",
+    "npm": "^6.4.1",
+    "pre-commit": "^1.2.2",
+    "react": "^16.6.3",
+    "react-dom": "^16.6.3"
+  },
+  "browserify": {
+    "transform": [
+      [
+        "babelify",
+        {
+          "presets": [
+            "@babel/preset-env"
+          ],
+          "plugins": [
+            "@babel/plugin-transform-react-jsx"
+          ]
+        }
+      ]
+    ]
+  }
+}
