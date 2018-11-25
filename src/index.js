@@ -1,7 +1,5 @@
-import React from 'react';
-import ReactDOM from 'react-dom';
-
 const container = document.querySelector('.left-wrapper .section-content');
+
 if (container) {
     const MAX_ACCESSORIES = 10;
 
@@ -93,25 +91,17 @@ if (container) {
         });
     };
 
-    const Panel = () => {
-        return (
-            <div
-                style={{display: 'flex'}}
-            >
-                <button
-                    style={{margin: 'auto'}}
-                    className='btn-control btn-control-small'
-                    onClick={randomizeAvatar}
-                >
-                    Randomize
-                </button>
-            </div>
-        );
-    };
+    const buttonContainer = document.createElement('div');
+    const button = document.createElement('button');
+    const text = document.createTextNode('Randomize');
+    buttonContainer.setAttribute('style', 'display: flex');
+    buttonContainer.appendChild(button);
+    button.appendChild(text);
+    button.setAttribute('class', '.btn-control.btn-control-small');
+    button.setAttribute('style', 'margin: auto');
+    button.addEventListener('click', randomizeAvatar);
 
-    const panelContainer = document.createElement('div');
-    container.appendChild(panelContainer);
-    ReactDOM.render(Panel(), panelContainer);
+    container.appendChild(buttonContainer);
     console.log('ScatterBlox loaded');
 } else {
     console.log('ScatterBlox could not find button container');
