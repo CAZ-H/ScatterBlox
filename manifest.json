@@ -6,7 +6,7 @@
   "manifest_version": 2,
   "content_scripts": [
     {
-      "matches": ["*://*.roblox.com/*"],
+      "matches": ["*://*.roblox.com/my/avatar"],
       "js": ["src/index.js"],
       "run_at": "document_end"
     }

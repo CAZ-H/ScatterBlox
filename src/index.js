@@ -1,36 +1,6 @@
 const container = document.querySelector('.left-wrapper .section-content');
 
 if (container) {
-    const MAX_ACCESSORIES = 10;
-
-    const getCSRFToken = () => {
-        let script = document.evaluate('//text()[contains(., "Roblox.XsrfToken.setToken(")]', document, null, XPathResult.STRING_TYPE, null );
-        return script.stringValue.match(/(?<=')([A-Za-z0-9!@#$%^&*()/\\]+)(?=')/)[0]; // Positive lookbehind may not be supported?
-    };
-
-    const sendReq = (url, body, method, callback, errorCallback) => {
-        const req = new XMLHttpRequest();
-        req.onreadystatechange = () => {
-            if (req.readyState === 4 && req.status === 200)
-            {
-                try {
-                    callback(JSON.parse(req.responseText));
-                } catch (e) {
-                    errorCallback(e)
-                }
-            }
-        };
-        req.open(method, url);
-        req.setRequestHeader("Content-type", "application/json");
-        req.setRequestHeader('X-CSRF-TOKEN', getCSRFToken());
-        req.send(body);
-    };
-
-    const getAssets = (userId, assetType, callback, errorCallback) => {
-        const url = `https://inventory.roblox.com/v1/users/${userId}/inventory/${assetType}?itemsPerPage=1000`;
-        sendReq(url, null, 'GET', callback, errorCallback);
-    };
-
     const getUserId = () => {
         const meta = document.querySelector('[name="user-data"]');
         if (meta) {
@@ -39,41 +9,98 @@ if (container) {
         return null;
     };
 
-    const getAccessories = (assetTypes, callback) => {
+    const MAX_ACCESSORIES = 10;
+    const USER_ID = getUserId();
+
+    const options = {
+        randomizeHead: true,
+        randomizeTorso: true,
+        randomizeArms: true,
+        randomizeLegs: true
+    };
+
+    const getCSRFToken = () => {
+        let script = document.evaluate('//text()[contains(., "Roblox.XsrfToken.setToken(")]', document, null, XPathResult.STRING_TYPE, null );
+        return script.stringValue.match(/(?<=')([A-Za-z0-9!@#$%^&*()/\\]+)(?=')/)[0]; // Positive lookbehind may not be supported?
+    };
+
+    const sendReq = (url, body, method) => {
+        return new Promise((resolve, reject) => {
+            const req = new XMLHttpRequest();
+            req.onreadystatechange = () => {
+                if (req.readyState === 4 && req.status === 200)
+                {
+                    try {
+                        resolve(JSON.parse(req.responseText));
+                    } catch (e) {
+                        reject(e)
+                    }
+                }
+            };
+            req.open(method, url);
+            req.setRequestHeader("Content-type", "application/json");
+            req.setRequestHeader('X-CSRF-TOKEN', getCSRFToken());
+            req.send(body);
+        })
+    };
+
+    const getOwnedAssets = (userId, assetType) => {
+        const url = `https://inventory.roblox.com/v1/users/${userId}/inventory/${assetType}?itemsPerPage=1000`;
+        return sendReq(url, null, 'GET');
+    };
+
+    const getWornAssets = (userId) => {
+        const url = `https://avatar.roblox.com/v1/users/${userId}/avatar`;
+        return sendReq(url, null, 'GET');
+    };
+
+    const getOwnedAccessories = (assetTypes) => {
         const promises = assetTypes.map(assetType => (
-            new Promise((resolve, reject) => {
-                getAssets(getUserId(), assetType, resolve, reject);
-            })
+            getOwnedAssets(USER_ID, assetType)
         ));
 
-        Promise.all(promises).then((values) => {
-            callback(values);
-        }).catch((error) => {
-            console.log(error.stack);
-            callback([]);
-        });
+        return Promise.all(promises);
+    };
+
+    const getWornAccessories = (assetTypeNames) => {
+        return new Promise ((resolve, reject) => {
+            getWornAssets(USER_ID).then(assets => {
+                resolve(assets.assets.filter(asset => assetTypeNames.includes(asset.assetType.name)).map(asset => asset.id));
+            }).catch(error => {
+                console.log(error.stack);
+                reject([]);
+            });
+        })
     };
 
     const wearAssets = (list) => {
         const url = 'https://avatar.roblox.com/v1/avatar/set-wearing-assets';
         const body = JSON.stringify(list);
-        sendReq(url, body, 'POST', () => {
+        sendReq(url, body, 'POST').then(() => {
             location.reload();
-        }, (error) => {
+        }).catch(error => {
             console.log(error.stack);
         });
     };
 
     const randomizeAvatar = () => {
-        const bodyAssets = new Promise((resolve) => {
-            getAccessories(["Face", "Head", "Torso", "RightArm", "LeftArm", "RightLeg", "LeftLeg"], resolve);
-        });
+        const randomBodyParts = [];
+        options.randomizeArms && randomBodyParts.push("RightArm", "LeftArm");
+        options.randomizeLegs && randomBodyParts.push("RightLeg", "LeftLeg");
+        options.randomizeTorso && randomBodyParts.push("Torso");
+        options.randomizeHead && randomBodyParts.push("Head", "Face");
+        const bodyAssets = getOwnedAccessories(randomBodyParts);
 
-        const accessoryAssets = new Promise((resolve) => {
-            getAccessories(["HairAccessory", "FaceAccessory", "NeckAccessory", "ShoulderAccessory", "FrontAccessory", "BackAccessory", "WaistAccessory"], resolve);
-        });
+        const accessoryAssets = getOwnedAccessories(["HairAccessory", "FaceAccessory", "NeckAccessory", "ShoulderAccessory", "FrontAccessory", "BackAccessory", "WaistAccessory"]);
 
-        Promise.all([bodyAssets, accessoryAssets]).then((values) => {
+        const frozenBodyParts = [];
+        !options.randomizeArms && frozenBodyParts.push("Right Arm", "Left Arm");
+        !options.randomizeLegs && frozenBodyParts.push("Right Leg", "Left Leg");
+        !options.randomizeTorso && frozenBodyParts.push("Torso");
+        !options.randomizeHead && frozenBodyParts.push("Head", "Face");
+        const frozenAssets = getWornAccessories(frozenBodyParts);
+
+        Promise.all([bodyAssets, accessoryAssets, frozenAssets]).then((values) => {
             let list = {
                 assetIds: []
             };
@@ -84,6 +111,8 @@ if (container) {
                 const randomAssetList = values[1][~~(Math.random() * values[1].length)];
                 list.assetIds.push(randomAssetList.data[~~(Math.random() * randomAssetList.total)]);
             }
+            // Select frozen body parts
+            list.assetIds = list.assetIds.concat(values[2]);
             // Wear all
             wearAssets(list);
         }).catch((error) => {
@@ -91,17 +120,68 @@ if (container) {
         });
     };
 
-    const buttonContainer = document.createElement('div');
-    const button = document.createElement('button');
-    const text = document.createTextNode('Randomize');
-    buttonContainer.setAttribute('style', 'display: flex');
-    buttonContainer.appendChild(button);
-    button.appendChild(text);
-    button.setAttribute('class', '.btn-control.btn-control-small');
-    button.setAttribute('style', 'margin: auto');
-    button.addEventListener('click', randomizeAvatar);
+    const setOption = (value, optionName) => {
+        console.log(`Set ${optionName} to ${value}`);
+        options[optionName] = value;
+    };
 
-    container.appendChild(buttonContainer);
+    const createCheckboxOption = (internalName, textName, onChange) => {
+        const optionContainer = document.createElement('div');
+        optionContainer.setAttribute('style', 'display: flex; margin: 2px 0');
+
+        const text = document.createTextNode(textName);
+        const textContainer = document.createElement('div');
+        textContainer.setAttribute('style', 'flex: 0 0 100px');
+        textContainer.appendChild(text);
+
+        const option = document.createElement('input');
+        option.setAttribute('type', 'checkbox');
+        option.setAttribute('style', 'flex-grow: 1');
+        option.setAttribute('checked', options[internalName]);
+        option.addEventListener('change', onChange);
+
+        optionContainer.appendChild(textContainer);
+        optionContainer.appendChild(option);
+        return optionContainer;
+    };
+
+    const createOptions = () => {
+        const optionsContainer = document.createElement('div');
+
+        const bodyHeader = document.createElement('div');
+        bodyHeader.setAttribute('style', 'padding-bottom: 2px; margin-bottom: 4px; text-align: center; padding: 0 auto; border-bottom: 1px solid rgba(0,0,0,0.2)');
+        bodyHeader.textContent = 'Body';
+
+        const randomizeHead = createCheckboxOption("randomizeHead", "Head", (e) => {setOption(e.target.checked, "randomizeHead")});
+        const randomizeTorso = createCheckboxOption("randomizeTorso", "Torso", (e) => {setOption(e.target.checked, "randomizeTorso")});
+        const randomizeArms = createCheckboxOption("randomizeArms", "Arms", (e) => {setOption(e.target.checked, "randomizeArms")});
+        const randomizeLegs = createCheckboxOption("randomizeLegs", "Legs", (e) => {setOption(e.target.checked, "randomizeLegs")});
+
+        optionsContainer.appendChild(bodyHeader);
+        optionsContainer.appendChild(randomizeHead);
+        optionsContainer.appendChild(randomizeTorso);
+        optionsContainer.appendChild(randomizeArms);
+        optionsContainer.appendChild(randomizeLegs);
+        return optionsContainer;
+    };
+
+    const createPanel = () => {
+        const buttonContainer = document.createElement('div');
+        const button = document.createElement('button');
+
+        buttonContainer.setAttribute('style', 'display: flex');
+        buttonContainer.appendChild(button);
+
+        button.textContent = 'Randomize';
+        button.setAttribute('class', '.btn-control.btn-control-small');
+        button.setAttribute('style', 'margin: 8px auto');
+        button.addEventListener('click', randomizeAvatar);
+
+        container.appendChild(buttonContainer);
+        container.appendChild(createOptions());
+    };
+
+    createPanel();
     console.log('ScatterBlox loaded');
 } else {
     console.log('ScatterBlox could not find button container');
