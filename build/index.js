@@ -5,20 +5,18 @@ var _request = require("./utility/request");
 
 var _page = require("./utility/page");
 
-var container = document.querySelector('.left-wrapper .section-content');
+var _create = require("./utility/create");
 
-if (container) {
+var _storage = require("./utility/storage");
+
+var rootContainer = document.querySelector('.left-wrapper .section-content');
+
+if (rootContainer) {
   var MAX_ACCESSORIES = 10;
   var USER_ID = (0, _page.getUserId)();
-  var options = {
-    randomizeHead: true,
-    randomizeTorso: true,
-    randomizeArms: true,
-    randomizeLegs: true
-  };
 
   var getOwnedAssets = function getOwnedAssets(userId, assetType) {
-    var url = "https://inventory.roblox.com/v1/users/".concat(userId, "/inventory/").concat(assetType, "?itemsPerPage=1000");
+    var url = "https://inventory.roblox.com/v1/users/".concat(userId, "/inventory/").concat(assetType, "?itemsPerPage=5000");
     return (0, _request.sendReq)(url, null, 'GET');
   };
 
@@ -43,7 +41,7 @@ if (container) {
           return asset.id;
         }));
       }).catch(function (error) {
-        console.log(error.stack);
+        console.log('[ScatterBlox]\n', error.stack);
         reject([]);
       });
     });
@@ -55,23 +53,31 @@ if (container) {
     (0, _request.sendReq)(url, body, 'POST').then(function () {
       location.reload();
     }).catch(function (error) {
-      console.log(error.stack);
+      console.log('[ScatterBlox]\n', error.stack);
     });
   };
 
   var randomizeAvatar = function randomizeAvatar() {
     var randomBodyParts = [];
-    options.randomizeArms && randomBodyParts.push("RightArm", "LeftArm");
-    options.randomizeLegs && randomBodyParts.push("RightLeg", "LeftLeg");
-    options.randomizeTorso && randomBodyParts.push("Torso");
-    options.randomizeHead && randomBodyParts.push("Head", "Face");
+    (0, _storage.getOption)('randomizeArms') && randomBodyParts.push("RightArm", "LeftArm");
+    (0, _storage.getOption)('randomizeLegs') && randomBodyParts.push("RightLeg", "LeftLeg");
+    (0, _storage.getOption)('randomizeTorso') && randomBodyParts.push("Torso");
+    (0, _storage.getOption)('randomizeHead') && randomBodyParts.push("Head", "Face");
     var bodyAssets = getOwnedAccessories(randomBodyParts);
-    var accessoryAssets = getOwnedAccessories(["HairAccessory", "FaceAccessory", "NeckAccessory", "ShoulderAccessory", "FrontAccessory", "BackAccessory", "WaistAccessory"]);
+    var randomAccessories = [];
+    (0, _storage.getOption)('randomizeHair') && randomAccessories.push("HairAccessory");
+    (0, _storage.getOption)('randomizeFace') && randomAccessories.push("FaceAccessory");
+    (0, _storage.getOption)('randomizeNeck') && randomAccessories.push("NeckAccessory");
+    (0, _storage.getOption)('randomizeShoulder') && randomAccessories.push("ShoulderAccessory");
+    (0, _storage.getOption)('randomizeFront') && randomAccessories.push("FrontAccessory");
+    (0, _storage.getOption)('randomizeBack') && randomAccessories.push("BackAccessory");
+    (0, _storage.getOption)('randomizeWaist') && randomAccessories.push("WaistAccessory");
+    var accessoryAssets = getOwnedAccessories(randomAccessories);
     var frozenBodyParts = [];
-    !options.randomizeArms && frozenBodyParts.push("Right Arm", "Left Arm");
-    !options.randomizeLegs && frozenBodyParts.push("Right Leg", "Left Leg");
-    !options.randomizeTorso && frozenBodyParts.push("Torso");
-    !options.randomizeHead && frozenBodyParts.push("Head", "Face");
+    !(0, _storage.getOption)('randomizeArms') && frozenBodyParts.push("Right Arm", "Left Arm");
+    !(0, _storage.getOption)('randomizeLegs') && frozenBodyParts.push("Right Leg", "Left Leg");
+    !(0, _storage.getOption)('randomizeTorso') && frozenBodyParts.push("Torso");
+    !(0, _storage.getOption)('randomizeHead') && frozenBodyParts.push("Head", "Face");
     var frozenAssets = getWornAccessories(frozenBodyParts);
     Promise.all([bodyAssets, accessoryAssets, frozenAssets]).then(function (values) {
       var list = {
@@ -82,7 +88,7 @@ if (container) {
         return assetList.data[~~(Math.random() * assetList.total)];
       })); // Select accessories
 
-      for (var i = 0; i < MAX_ACCESSORIES; i++) {
+      for (var i = 0; i < (0, _storage.getOption)('numAccessories'); i++) {
         var randomAssetList = values[1][~~(Math.random() * values[1].length)];
         list.assetIds.push(randomAssetList.data[~~(Math.random() * randomAssetList.total)]);
       } // Select frozen body parts
@@ -92,58 +98,59 @@ if (container) {
 
       wearAssets(list);
     }).catch(function (error) {
-      console.log(error.stack);
+      console.log('[ScatterBlox]\n', error.stack);
     });
-  };
-
-  var setOption = function setOption(value, optionName) {
-    console.log("Set ".concat(optionName, " to ").concat(value));
-    options[optionName] = value;
-  };
-
-  var createCheckboxOption = function createCheckboxOption(internalName, textName, onChange) {
-    var optionContainer = document.createElement('div');
-    optionContainer.setAttribute('style', 'display: flex; margin: 2px 0');
-    var text = document.createTextNode(textName);
-    var textContainer = document.createElement('div');
-    textContainer.setAttribute('style', 'flex: 0 0 100px');
-    textContainer.appendChild(text);
-    var option = document.createElement('input');
-    option.setAttribute('type', 'checkbox');
-    option.setAttribute('style', 'flex-grow: 1');
-    option.setAttribute('checked', options[internalName]);
-    option.addEventListener('change', onChange);
-    optionContainer.appendChild(textContainer);
-    optionContainer.appendChild(option);
-    return optionContainer;
   };
 
   var createOptions = function createOptions() {
     var optionsContainer = document.createElement('div');
-    var bodyHeader = document.createElement('div');
-    bodyHeader.setAttribute('style', 'padding-bottom: 2px; margin-bottom: 4px; text-align: center; padding: 0 auto; border-bottom: 1px solid rgba(0,0,0,0.2)');
-    bodyHeader.textContent = 'Body';
-    var randomizeHead = createCheckboxOption("randomizeHead", "Head", function (e) {
-      setOption(e.target.checked, "randomizeHead");
+    var bodyHeader = (0, _create.createHeader)('Body');
+    var accessoryHeader = (0, _create.createHeader)('Accessories'); // Body options
+
+    var randomizeHead = (0, _create.createCheckboxOption)("randomizeHead", "Head", (0, _storage.getOption)('randomizeHead'), function (e) {
+      (0, _storage.setOption)(e.target.checked, "randomizeHead");
     });
-    var randomizeTorso = createCheckboxOption("randomizeTorso", "Torso", function (e) {
-      setOption(e.target.checked, "randomizeTorso");
+    var randomizeTorso = (0, _create.createCheckboxOption)("randomizeTorso", "Torso", (0, _storage.getOption)('randomizeTorso'), function (e) {
+      (0, _storage.setOption)(e.target.checked, "randomizeTorso");
     });
-    var randomizeArms = createCheckboxOption("randomizeArms", "Arms", function (e) {
-      setOption(e.target.checked, "randomizeArms");
+    var randomizeArms = (0, _create.createCheckboxOption)("randomizeArms", "Arms", (0, _storage.getOption)('randomizeArms'), function (e) {
+      (0, _storage.setOption)(e.target.checked, "randomizeArms");
     });
-    var randomizeLegs = createCheckboxOption("randomizeLegs", "Legs", function (e) {
-      setOption(e.target.checked, "randomizeLegs");
+    var randomizeLegs = (0, _create.createCheckboxOption)("randomizeLegs", "Legs", (0, _storage.getOption)('randomizeLegs'), function (e) {
+      (0, _storage.setOption)(e.target.checked, "randomizeLegs");
+    }); // Accessory options
+
+    var numAccessories = (0, _create.createNumberInput)("numAccessories", "How Many", (0, _storage.getOption)('numAccessories'), 0, MAX_ACCESSORIES, function (e) {
+      (0, _storage.setOption)(e.target.value, "numAccessories");
     });
-    optionsContainer.appendChild(bodyHeader);
-    optionsContainer.appendChild(randomizeHead);
-    optionsContainer.appendChild(randomizeTorso);
-    optionsContainer.appendChild(randomizeArms);
-    optionsContainer.appendChild(randomizeLegs);
+    var randomizeHair = (0, _create.createCheckboxOption)("randomizeHair", "Hair", (0, _storage.getOption)('randomizeHair'), function (e) {
+      (0, _storage.setOption)(e.target.checked, "randomizeHair");
+    });
+    var randomizeFace = (0, _create.createCheckboxOption)("randomizeFace", "Face", (0, _storage.getOption)('randomizeFace'), function (e) {
+      (0, _storage.setOption)(e.target.checked, "randomizeFace");
+    });
+    var randomizeNeck = (0, _create.createCheckboxOption)("randomizeNeck", "Neck", (0, _storage.getOption)('randomizeNeck'), function (e) {
+      (0, _storage.setOption)(e.target.checked, "randomizeNeck");
+    });
+    var randomizeShoulder = (0, _create.createCheckboxOption)("randomizeShoulder", "Shoulder", (0, _storage.getOption)('randomizeShoulder'), function (e) {
+      (0, _storage.setOption)(e.target.checked, "randomizeShoulder");
+    });
+    var randomizeFront = (0, _create.createCheckboxOption)("randomizeFront", "Front", (0, _storage.getOption)('randomizeFront'), function (e) {
+      (0, _storage.setOption)(e.target.checked, "randomizeFront");
+    });
+    var randomizeBack = (0, _create.createCheckboxOption)("randomizeBack", "Back", (0, _storage.getOption)('randomizeBack'), function (e) {
+      (0, _storage.setOption)(e.target.checked, "randomizeBack");
+    });
+    var randomizeWaist = (0, _create.createCheckboxOption)("randomizeWaist", "Waist", (0, _storage.getOption)('randomizeWaist'), function (e) {
+      (0, _storage.setOption)(e.target.checked, "randomizeWaist");
+    });
+    (0, _create.massAppend)(optionsContainer, [bodyHeader, randomizeHead, randomizeTorso, randomizeArms, randomizeLegs, accessoryHeader, numAccessories, randomizeHair, randomizeFace, randomizeNeck, randomizeShoulder, randomizeFront, randomizeBack, randomizeWaist]);
     return optionsContainer;
   };
 
   var createPanel = function createPanel() {
+    var container = document.createElement('div');
+    container.setAttribute('style', 'margin: auto; height: 150px; overflow-y: scroll; width: 100%');
     var buttonContainer = document.createElement('div');
     var button = document.createElement('button');
     buttonContainer.setAttribute('style', 'display: flex');
@@ -154,15 +161,84 @@ if (container) {
     button.addEventListener('click', randomizeAvatar);
     container.appendChild(buttonContainer);
     container.appendChild(createOptions());
+    rootContainer.appendChild(container);
   };
 
-  createPanel();
-  console.log('ScatterBlox loaded');
+  _storage.optionsLoaded.then(function () {
+    createPanel();
+    console.log('[ScatterBlox] Loaded');
+  });
 } else {
-  console.log('ScatterBlox could not find button container');
+  console.log('[ScatterBlox] Could not find mount in DOM');
 }
 
-},{"./utility/page":2,"./utility/request":3}],2:[function(require,module,exports){
+},{"./utility/create":2,"./utility/page":3,"./utility/request":4,"./utility/storage":5}],2:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.massAppend = exports.createHeader = exports.createNumberInput = exports.createCheckboxOption = void 0;
+
+var createCheckboxOption = function createCheckboxOption(internalName, textName, defaultValue, onChange) {
+  var optionContainer = document.createElement('div');
+  optionContainer.setAttribute('style', 'display: flex; margin: 2px 0');
+  var textContainer = document.createElement('div');
+  textContainer.setAttribute('style', 'flex: 0 0 100px');
+  textContainer.textContent = textName;
+  var option = document.createElement('input');
+  option.setAttribute('type', 'checkbox');
+  option.setAttribute('style', 'flex-grow: 1');
+  defaultValue ? option.checked = true : option.checked = false;
+  option.addEventListener('change', onChange);
+  optionContainer.appendChild(textContainer);
+  optionContainer.appendChild(option);
+  return optionContainer;
+};
+
+exports.createCheckboxOption = createCheckboxOption;
+
+var createNumberInput = function createNumberInput(internalName, textName, defaultValue) {
+  var min = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : '0';
+  var max = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : '10';
+  var onChange = arguments.length > 5 ? arguments[5] : undefined;
+  var optionContainer = document.createElement('div');
+  optionContainer.setAttribute('style', 'display: flex; margin: 2px 0');
+  var textContainer = document.createElement('div');
+  textContainer.setAttribute('style', 'flex: 0 0 100px');
+  textContainer.textContent = textName;
+  var option = document.createElement('input');
+  option.setAttribute('type', 'number');
+  option.setAttribute('style', 'flex-grow: 1; width: 100%');
+  option.setAttribute('value', defaultValue);
+  option.setAttribute('min', min);
+  option.setAttribute('max', max);
+  option.addEventListener('change', onChange);
+  optionContainer.appendChild(textContainer);
+  optionContainer.appendChild(option);
+  return optionContainer;
+};
+
+exports.createNumberInput = createNumberInput;
+
+var createHeader = function createHeader(text) {
+  var header = document.createElement('div');
+  header.setAttribute('style', 'padding-bottom: 2px; margin-bottom: 4px; text-align: center; padding: 0 auto; border-bottom: 1px solid rgba(0,0,0,0.2)');
+  header.textContent = text;
+  return header;
+};
+
+exports.createHeader = createHeader;
+
+var massAppend = function massAppend(container, children) {
+  children.map(function (child) {
+    container.appendChild(child);
+  });
+};
+
+exports.massAppend = massAppend;
+
+},{}],3:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -184,12 +260,12 @@ exports.getUserId = getUserId;
 
 var getCSRFToken = function getCSRFToken() {
   var script = document.evaluate('//text()[contains(., "Roblox.XsrfToken.setToken(")]', document, null, XPathResult.STRING_TYPE, null);
-  return script.stringValue.match(/(?<=')([A-Za-z0-9!@#$%^&*()/\\]+)(?=')/)[0]; // Positive lookbehind may not be supported?
+  return script.stringValue.match(/(?<=')([A-Za-z0-9+!@#$%^&*()/\\]+)(?=')/)[0]; // Positive lookbehind may not be supported?
 };
 
 exports.getCSRFToken = getCSRFToken;
 
-},{}],3:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -222,4 +298,65 @@ var sendReq = function sendReq(url, body, method) {
 
 exports.sendReq = sendReq;
 
-},{"./page":2}]},{},[1]);
+},{"./page":3}],5:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.setOption = exports.getOption = exports.optionsLoaded = void 0;
+
+function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; var ownKeys = Object.keys(source); if (typeof Object.getOwnPropertySymbols === 'function') { ownKeys = ownKeys.concat(Object.getOwnPropertySymbols(source).filter(function (sym) { return Object.getOwnPropertyDescriptor(source, sym).enumerable; })); } ownKeys.forEach(function (key) { _defineProperty(target, key, source[key]); }); } return target; }
+
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
+var options = {
+  randomizeHead: true,
+  randomizeTorso: true,
+  randomizeArms: true,
+  randomizeLegs: true,
+  randomizeHair: true,
+  randomizeFace: true,
+  randomizeNeck: true,
+  randomizeShoulder: true,
+  randomizeFront: true,
+  randomizeBack: true,
+  randomizeWaist: true,
+  numAccessories: 10
+};
+var optionsLoaded = new Promise(function (resolve) {
+  chrome.storage.local.get('scatterblox', function (result) {
+    if (result.scatterblox) {
+      options = result.scatterblox;
+      console.log('[ScatterBlox] Loaded preferences', options);
+      resolve();
+    } else {
+      chrome.storage.local.set({
+        scatterblox: _objectSpread({}, options)
+      }, function () {
+        resolve();
+        console.log('[ScatterBlox] Saved preferences', options);
+      });
+    }
+  });
+});
+exports.optionsLoaded = optionsLoaded;
+
+var setOption = function setOption(value, optionName) {
+  options[optionName] = value;
+  chrome.storage.local.set({
+    scatterblox: options
+  }, function () {
+    console.log("[ScatterBlox] Set ".concat(optionName, " to ").concat(value));
+  });
+};
+
+exports.setOption = setOption;
+
+var getOption = function getOption(optionName) {
+  return options[optionName];
+};
+
+exports.getOption = getOption;
+
+},{}]},{},[1]);

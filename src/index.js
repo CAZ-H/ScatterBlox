@@ -1,21 +1,16 @@
 import { sendReq } from './utility/request';
 import { getUserId } from "./utility/page";
+import {createCheckboxOption, createHeader, createNumberInput, massAppend} from "./utility/create";
+import { optionsLoaded, getOption, setOption } from "./utility/storage";
 
-const container = document.querySelector('.left-wrapper .section-content');
+const rootContainer = document.querySelector('.left-wrapper .section-content');
 
-if (container) {
+if (rootContainer) {
     const MAX_ACCESSORIES = 10;
     const USER_ID = getUserId();
 
-    const options = {
-        randomizeHead: true,
-        randomizeTorso: true,
-        randomizeArms: true,
-        randomizeLegs: true
-    };
-
     const getOwnedAssets = (userId, assetType) => {
-        const url = `https://inventory.roblox.com/v1/users/${userId}/inventory/${assetType}?itemsPerPage=1000`;
+        const url = `https://inventory.roblox.com/v1/users/${userId}/inventory/${assetType}?itemsPerPage=5000`;
         return sendReq(url, null, 'GET');
     };
 
@@ -37,7 +32,7 @@ if (container) {
             getWornAssets(USER_ID).then(assets => {
                 resolve(assets.assets.filter(asset => assetTypeNames.includes(asset.assetType.name)).map(asset => asset.id));
             }).catch(error => {
-                console.log(error.stack);
+                console.log('[ScatterBlox]\n', error.stack);
                 reject([]);
             });
         })
@@ -49,25 +44,34 @@ if (container) {
         sendReq(url, body, 'POST').then(() => {
             location.reload();
         }).catch(error => {
-            console.log(error.stack);
+            console.log('[ScatterBlox]\n', error.stack);
         });
     };
 
     const randomizeAvatar = () => {
         const randomBodyParts = [];
-        options.randomizeArms && randomBodyParts.push("RightArm", "LeftArm");
-        options.randomizeLegs && randomBodyParts.push("RightLeg", "LeftLeg");
-        options.randomizeTorso && randomBodyParts.push("Torso");
-        options.randomizeHead && randomBodyParts.push("Head", "Face");
+        getOption('randomizeArms') && randomBodyParts.push("RightArm", "LeftArm");
+        getOption('randomizeLegs') && randomBodyParts.push("RightLeg", "LeftLeg");
+        getOption('randomizeTorso') && randomBodyParts.push("Torso");
+        getOption('randomizeHead') && randomBodyParts.push("Head", "Face");
         const bodyAssets = getOwnedAccessories(randomBodyParts);
 
-        const accessoryAssets = getOwnedAccessories(["HairAccessory", "FaceAccessory", "NeckAccessory", "ShoulderAccessory", "FrontAccessory", "BackAccessory", "WaistAccessory"]);
+        const randomAccessories = [];
+        getOption('randomizeHair') && randomAccessories.push("HairAccessory");
+        getOption('randomizeFace') && randomAccessories.push("FaceAccessory");
+        getOption('randomizeNeck') && randomAccessories.push("NeckAccessory");
+        getOption('randomizeShoulder') && randomAccessories.push("ShoulderAccessory");
+        getOption('randomizeFront') && randomAccessories.push("FrontAccessory");
+        getOption('randomizeBack') && randomAccessories.push("BackAccessory");
+        getOption('randomizeWaist') && randomAccessories.push("WaistAccessory");
+
+        const accessoryAssets = getOwnedAccessories(randomAccessories);
 
         const frozenBodyParts = [];
-        !options.randomizeArms && frozenBodyParts.push("Right Arm", "Left Arm");
-        !options.randomizeLegs && frozenBodyParts.push("Right Leg", "Left Leg");
-        !options.randomizeTorso && frozenBodyParts.push("Torso");
-        !options.randomizeHead && frozenBodyParts.push("Head", "Face");
+        !getOption('randomizeArms') && frozenBodyParts.push("Right Arm", "Left Arm");
+        !getOption('randomizeLegs') && frozenBodyParts.push("Right Leg", "Left Leg");
+        !getOption('randomizeTorso') && frozenBodyParts.push("Torso");
+        !getOption('randomizeHead') && frozenBodyParts.push("Head", "Face");
         const frozenAssets = getWornAccessories(frozenBodyParts);
 
         Promise.all([bodyAssets, accessoryAssets, frozenAssets]).then((values) => {
@@ -77,7 +81,7 @@ if (container) {
             // Select body parts
             list.assetIds = list.assetIds.concat(values[0].map(assetList => assetList.data[~~(Math.random() * assetList.total)]));
             // Select accessories
-            for (let i = 0; i < MAX_ACCESSORIES; i++) {
+            for (let i = 0; i < getOption('numAccessories'); i++) {
                 const randomAssetList = values[1][~~(Math.random() * values[1].length)];
                 list.assetIds.push(randomAssetList.data[~~(Math.random() * randomAssetList.total)]);
             }
@@ -86,56 +90,67 @@ if (container) {
             // Wear all
             wearAssets(list);
         }).catch((error) => {
-            console.log(error.stack);
+            console.log('[ScatterBlox]\n', error.stack);
         });
-    };
-
-    const setOption = (value, optionName) => {
-        console.log(`Set ${optionName} to ${value}`);
-        options[optionName] = value;
-    };
-
-    const createCheckboxOption = (internalName, textName, onChange) => {
-        const optionContainer = document.createElement('div');
-        optionContainer.setAttribute('style', 'display: flex; margin: 2px 0');
-
-        const text = document.createTextNode(textName);
-        const textContainer = document.createElement('div');
-        textContainer.setAttribute('style', 'flex: 0 0 100px');
-        textContainer.appendChild(text);
-
-        const option = document.createElement('input');
-        option.setAttribute('type', 'checkbox');
-        option.setAttribute('style', 'flex-grow: 1');
-        option.setAttribute('checked', options[internalName]);
-        option.addEventListener('change', onChange);
-
-        optionContainer.appendChild(textContainer);
-        optionContainer.appendChild(option);
-        return optionContainer;
     };
 
     const createOptions = () => {
         const optionsContainer = document.createElement('div');
 
-        const bodyHeader = document.createElement('div');
-        bodyHeader.setAttribute('style', 'padding-bottom: 2px; margin-bottom: 4px; text-align: center; padding: 0 auto; border-bottom: 1px solid rgba(0,0,0,0.2)');
-        bodyHeader.textContent = 'Body';
+        const bodyHeader = createHeader('Body');
+        const accessoryHeader = createHeader('Accessories');
+        // Body options
+        const randomizeHead = createCheckboxOption("randomizeHead", "Head", getOption('randomizeHead'),
+            e => {setOption(e.target.checked, "randomizeHead")});
+        const randomizeTorso = createCheckboxOption("randomizeTorso", "Torso", getOption('randomizeTorso'),
+            e => {setOption(e.target.checked, "randomizeTorso")});
+        const randomizeArms = createCheckboxOption("randomizeArms", "Arms", getOption('randomizeArms'),
+            e => {setOption(e.target.checked, "randomizeArms")});
+        const randomizeLegs = createCheckboxOption("randomizeLegs", "Legs", getOption('randomizeLegs'),
+            e => {setOption(e.target.checked, "randomizeLegs")});
+        // Accessory options
+        const numAccessories = createNumberInput("numAccessories", "How Many", getOption('numAccessories'), 0, MAX_ACCESSORIES,
+            e => {setOption(e.target.value, "numAccessories")});
+        const randomizeHair = createCheckboxOption("randomizeHair", "Hair", getOption('randomizeHair'),
+            e => {setOption(e.target.checked, "randomizeHair")});
+        const randomizeFace = createCheckboxOption("randomizeFace", "Face", getOption('randomizeFace'),
+            e => {setOption(e.target.checked, "randomizeFace")});
+        const randomizeNeck = createCheckboxOption("randomizeNeck", "Neck", getOption('randomizeNeck'),
+            e => {setOption(e.target.checked, "randomizeNeck")});
+        const randomizeShoulder = createCheckboxOption("randomizeShoulder", "Shoulder", getOption('randomizeShoulder'),
+            e => {setOption(e.target.checked, "randomizeShoulder")});
+        const randomizeFront = createCheckboxOption("randomizeFront", "Front", getOption('randomizeFront'),
+            e => {setOption(e.target.checked, "randomizeFront")});
+        const randomizeBack = createCheckboxOption("randomizeBack", "Back", getOption('randomizeBack'),
+            e => {setOption(e.target.checked, "randomizeBack")});
+        const randomizeWaist = createCheckboxOption("randomizeWaist", "Waist", getOption('randomizeWaist'),
+            e => {setOption(e.target.checked, "randomizeWaist")});
 
-        const randomizeHead = createCheckboxOption("randomizeHead", "Head", (e) => {setOption(e.target.checked, "randomizeHead")});
-        const randomizeTorso = createCheckboxOption("randomizeTorso", "Torso", (e) => {setOption(e.target.checked, "randomizeTorso")});
-        const randomizeArms = createCheckboxOption("randomizeArms", "Arms", (e) => {setOption(e.target.checked, "randomizeArms")});
-        const randomizeLegs = createCheckboxOption("randomizeLegs", "Legs", (e) => {setOption(e.target.checked, "randomizeLegs")});
+        massAppend(optionsContainer, [
+            bodyHeader,
+            randomizeHead,
+            randomizeTorso,
+            randomizeArms,
+            randomizeLegs,
 
-        optionsContainer.appendChild(bodyHeader);
-        optionsContainer.appendChild(randomizeHead);
-        optionsContainer.appendChild(randomizeTorso);
-        optionsContainer.appendChild(randomizeArms);
-        optionsContainer.appendChild(randomizeLegs);
+            accessoryHeader,
+            numAccessories,
+            randomizeHair,
+            randomizeFace,
+            randomizeNeck,
+            randomizeShoulder,
+            randomizeFront,
+            randomizeBack,
+            randomizeWaist
+        ]);
+
         return optionsContainer;
     };
 
     const createPanel = () => {
+        const container = document.createElement('div');
+        container.setAttribute('style', 'margin: auto; height: 150px; overflow-y: scroll; width: 100%');
+
         const buttonContainer = document.createElement('div');
         const button = document.createElement('button');
 
@@ -149,11 +164,14 @@ if (container) {
 
         container.appendChild(buttonContainer);
         container.appendChild(createOptions());
+        rootContainer.appendChild(container);
     };
 
-    createPanel();
-    console.log('ScatterBlox loaded');
+    optionsLoaded.then(() => {
+        createPanel();
+        console.log('[ScatterBlox] Loaded');
+    });
 } else {
-    console.log('ScatterBlox could not find button container');
+    console.log('[ScatterBlox] Could not find mount in DOM');
 }
 
