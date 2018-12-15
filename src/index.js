@@ -3,7 +3,7 @@ import { getUserId } from "./utility/page";
 import {createCheckboxOption, createHeader, createNumberInput, massAppend} from "./utility/create";
 import { optionsLoaded, getOption, setOption } from "./utility/storage";
 
-const rootContainer = document.querySelector('.left-wrapper .section-content');
+const rootContainer = document.querySelector('.left-wrapper');
 
 if (rootContainer) {
     const MAX_ACCESSORIES = 10;
