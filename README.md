@@ -1,4 +1,4 @@
-** This is broken after a Chrome update that started enforcing some CORS restrictions, and I've moved onto other projects.**
+**This is broken after a Chrome update that started enforcing some CORS restrictions, and I've moved onto other projects.**
 
 # 🎲 ScatterBlox 🎲
 
